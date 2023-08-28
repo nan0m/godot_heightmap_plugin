@@ -44,6 +44,12 @@ var _terrain_painter : HT_TerrainPainter
 var _brush_settings_dialog : HT_BrushSettingsDialog = null
 var _logger = HT_Logger.get_for(self)
 
+enum CHANGE_MODE {NONE, SIZE, OPACITY}
+var cur_mode = CHANGE_MODE.NONE
+const shortcut_key = KEY_G
+var init_mouse_position: Vector2 = Vector2.ZERO
+var initial_value: = 0
+
 # TODO This is an ugly workaround for https://github.com/godotengine/godot/issues/19479
 @onready var _temp_node = get_node("Temp")
 @onready var _grid_container = get_node("GridContainer")
@@ -71,66 +77,47 @@ func _ready():
 	#else:
 	#	_size_slider.max_value = 50
 
-var change_size :bool = false
-var change_opacity :bool = false
-var origin_position: Vector2 = Vector2.ZERO
-var origin_size: = 0
-var origin_opacity = 0
 func _input(event):
-	if event is InputEventKey:
-		if event.keycode == KEY_G and event.is_shift_pressed() and not event.is_echo() and event.is_pressed():
-			change_opacity = !change_opacity
-			change_size = false #disable the other
-			if change_opacity:
-				origin_position = get_global_mouse_position()
-				origin_opacity = _opacity_slider.ratio #because terrain_painter.get_opacity() isn't the right value bc terrain painter uses the .ratio instead
+	#START CHANGING SIZE OR OPACITY
+	var is_change_size_just_pressed: bool = event is InputEventKey and event.keycode == KEY_G and not event.is_echo() and event.is_pressed()
+	if is_change_size_just_pressed:
+		var is_change_opacity_just_pressed: bool = event.is_shift_pressed()
 		
-		elif event.keycode == KEY_G and not event.is_echo() and event.is_pressed():
-			change_size = !change_size
-			change_opacity = false #disable the other
-			if change_size:
-				origin_position = get_global_mouse_position()
-				origin_size = _terrain_painter.get_brush_size()
-		
-	if event is InputEventMouseButton:
-		if event.button_index == MOUSE_BUTTON_LEFT:
-			change_size = false
-			change_opacity = false
-				
-	if change_size:
-		var sz = (origin_position - get_global_mouse_position() ).x *-1 #invert so right adds size and left diminishes it
-		_on_size_slider_value_changed( origin_size + sz)
-		_size_slider.value = sz 
+		if not cur_mode == CHANGE_MODE.NONE:
+			cur_mode = CHANGE_MODE.NONE
+			return
+		# START CHANGING VALUES
+		if is_change_opacity_just_pressed and not cur_mode == CHANGE_MODE.OPACITY:
+			cur_mode = CHANGE_MODE.OPACITY
+			init_mouse_position = get_global_mouse_position()
+			initial_value = _opacity_slider.ratio
+		elif not cur_mode == CHANGE_MODE.SIZE:
+			cur_mode = CHANGE_MODE.SIZE
+			init_mouse_position = get_global_mouse_position()
+			initial_value = _terrain_painter.get_brush_size()
 	
-	
-	if change_opacity:
-		var offset = (origin_position - get_global_mouse_position() ).x *-1
-		offset = offset / 100
-		var val = clamp(origin_opacity + offset, 0, 1)
-		_opacity_slider.ratio = val
-#		sz = round(sz / 5)
-#		sz = clamp( sz, 0, 100)
-		_on_opacity_slider_value_changed( val * 100)
-		#blender does it like that, but here this commits to the heightmap instantly
-#		if event is InputEventMouseButton and event.button_index == MOUSE_BUTTON_LEFT:
-#			change_size = false
+	# WHEN CHANGE IS RUNNING
+	else:
+		if cur_mode == CHANGE_MODE.SIZE:
+			var horizontal_offset := (init_mouse_position - get_global_mouse_position()).x * -1
+			var new_value := initial_value + horizontal_offset
+			new_value = max(new_value, 1)
+			_on_size_slider_value_changed(new_value)
+			
+		elif cur_mode == CHANGE_MODE.OPACITY:
+			var horizontal_offset := (init_mouse_position - get_global_mouse_position()).x * -1
+			var new_value:= initial_value + horizontal_offset / 100
+			new_value = clamp(new_value, 0.0, 1.0)
+			# I am setting the ratio here because terrain_painter doesn't use the "value" for setting
+			# the opacity, but actually uses the .ratio value instead. 
+			_opacity_slider.ratio = new_value 
 		
-		
-		#find a way to keep decal in the same location... not change position.
-		#need a way to get decal then...
-#		warp_mouse(origin_position - global_position)
-#		print(origin_position - get_global_mouse_position())
-		
-#			print('hello there')
-#
-#		if event.
-#	else:
-#		print('whupppp')
+		## USE LEFT CLICK TO STOP CHANGING
+		if event is InputEventMouseButton:
+			if event.button_index == MOUSE_BUTTON_LEFT:
+				cur_mode = CHANGE_MODE.NONE
 
 
-		#blender does it like that, but here this commits to the heightmap instantly
-#		if event is InputEventMouseButton and event.button_index == MOUSE_BUTTON_LEFT:
-#			change_size = false
 		
 
 func setup_dialogs(base_control: Node):
