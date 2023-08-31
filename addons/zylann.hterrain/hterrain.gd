@@ -374,7 +374,7 @@ func _get_property_list():
 			var cp := {}
 			for k in p:
 				cp[k] = p[k]
-			cp.name = str("", p.name)
+			cp.name = str("shader_params/", p.name)
 			props.append(cp)
 
 	return props
@@ -992,10 +992,12 @@ func _update_material_params():
 		var t := gt.affine_inverse()
 		_material.set_shader_parameter(SHADER_PARAM_INVERSE_TRANSFORM, t)
 		_material.next_pass.set_shader_parameter(SHADER_PARAM_INVERSE_TRANSFORM, t)
+		RenderingServer.global_shader_parameter_set("g_u_terrain_inverse_transform",t)
 		# This is needed to properly transform normals if the terrain is scaled
 		var normal_basis = gt.basis.inverse().transposed()
 		_material.set_shader_parameter(SHADER_PARAM_NORMAL_BASIS, normal_basis)
 		_material.next_pass.set_shader_parameter(SHADER_PARAM_NORMAL_BASIS, normal_basis)
+		RenderingServer.global_shader_parameter_set("g_u_terrain_normal_basis",t)
 		
 		if lookdev_material != null:
 			lookdev_material.set_shader_parameter(SHADER_PARAM_INVERSE_TRANSFORM, t)
