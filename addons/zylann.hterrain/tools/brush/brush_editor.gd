@@ -44,6 +44,12 @@ var _terrain_painter : HT_TerrainPainter
 var _brush_settings_dialog : HT_BrushSettingsDialog = null
 var _logger = HT_Logger.get_for(self)
 
+enum CHANGE_MODE {NONE, SIZE, OPACITY}
+var cur_mode = CHANGE_MODE.NONE
+const shortcut_key = KEY_G
+var init_mouse_position: Vector2 = Vector2.ZERO
+var initial_value: = 0
+
 # TODO This is an ugly workaround for https://github.com/godotengine/godot/issues/19479
 @onready var _temp_node = get_node("Temp")
 @onready var _grid_container = get_node("GridContainer")
@@ -71,6 +77,48 @@ func _ready():
 	#else:
 	#	_size_slider.max_value = 50
 
+func _input(event):
+	#START CHANGING SIZE OR OPACITY
+	var is_change_size_just_pressed: bool = event is InputEventKey and event.keycode == KEY_G and not event.is_echo() and event.is_pressed()
+	if is_change_size_just_pressed:
+		var is_change_opacity_just_pressed: bool = event.is_shift_pressed()
+		
+		if not cur_mode == CHANGE_MODE.NONE:
+			cur_mode = CHANGE_MODE.NONE
+			return
+		# START CHANGING VALUES
+		if is_change_opacity_just_pressed and not cur_mode == CHANGE_MODE.OPACITY:
+			cur_mode = CHANGE_MODE.OPACITY
+			init_mouse_position = get_global_mouse_position()
+			initial_value = _opacity_slider.ratio
+		elif not cur_mode == CHANGE_MODE.SIZE:
+			cur_mode = CHANGE_MODE.SIZE
+			init_mouse_position = get_global_mouse_position()
+			initial_value = _terrain_painter.get_brush_size()
+	
+	# WHEN CHANGE IS RUNNING
+	else:
+		if cur_mode == CHANGE_MODE.SIZE:
+			var horizontal_offset := (init_mouse_position - get_global_mouse_position()).x * -1
+			var new_value := initial_value + horizontal_offset
+			new_value = max(new_value, 1)
+			_on_size_slider_value_changed(new_value)
+			
+		elif cur_mode == CHANGE_MODE.OPACITY:
+			var horizontal_offset := (init_mouse_position - get_global_mouse_position()).x * -1
+			var new_value:= initial_value + horizontal_offset / 100
+			new_value = clamp(new_value, 0.0, 1.0)
+			# I am setting the ratio here because terrain_painter doesn't use the "value" for setting
+			# the opacity, but actually uses the .ratio value instead. 
+			_opacity_slider.ratio = new_value 
+		
+		## USE LEFT CLICK TO STOP CHANGING
+		if event is InputEventMouseButton:
+			if event.button_index == MOUSE_BUTTON_LEFT:
+				cur_mode = CHANGE_MODE.NONE
+
+
+		
 
 func setup_dialogs(base_control: Node):
 	assert(_brush_settings_dialog == null)

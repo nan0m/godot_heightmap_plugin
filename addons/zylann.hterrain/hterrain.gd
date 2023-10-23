@@ -156,6 +156,7 @@ signal transform_changed(global_transform)
 	get:
 		return lod_scale
 	set(value):
+		lod_scale = value #nan0m: this wasn't added must have been an oversight
 		_lodder.set_split_scale(value)
 
 
@@ -991,10 +992,13 @@ func _update_material_params():
 		var gt := get_internal_transform()
 		var t := gt.affine_inverse()
 		_material.set_shader_parameter(SHADER_PARAM_INVERSE_TRANSFORM, t)
-
+		_material.next_pass.set_shader_parameter(SHADER_PARAM_INVERSE_TRANSFORM, t)
+		RenderingServer.global_shader_parameter_set("g_u_terrain_inverse_transform",t)
 		# This is needed to properly transform normals if the terrain is scaled
 		var normal_basis = gt.basis.inverse().transposed()
 		_material.set_shader_parameter(SHADER_PARAM_NORMAL_BASIS, normal_basis)
+		_material.next_pass.set_shader_parameter(SHADER_PARAM_NORMAL_BASIS, normal_basis)
+		RenderingServer.global_shader_parameter_set("g_u_terrain_normal_basis",t)
 		
 		if lookdev_material != null:
 			lookdev_material.set_shader_parameter(SHADER_PARAM_INVERSE_TRANSFORM, t)
@@ -1003,6 +1007,7 @@ func _update_material_params():
 	for param_name in terrain_textures:
 		var tex = terrain_textures[param_name]
 		_material.set_shader_parameter(param_name, tex)
+		_material.next_pass.set_shader_parameter(param_name, tex)
 		if lookdev_material != null:
 			lookdev_material.set_shader_parameter(param_name, tex)
 
@@ -1015,12 +1020,14 @@ func _update_material_params():
 						var texture := _texture_set.get_texture(slot_index, type)
 						var shader_param := _get_ground_texture_shader_param_name(type, slot_index)
 						_material.set_shader_parameter(shader_param, texture)
+						_material.next_pass.set_shader_parameter(shader_param, texture)
 
 			HTerrainTextureSet.MODE_TEXTURE_ARRAYS:
 				for type in HTerrainTextureSet.TYPE_COUNT:
 					var texture_array := _texture_set.get_texture_array(type)
 					var shader_params := _get_ground_texture_array_shader_param_name(type)
 					_material.set_shader_parameter(shader_params, texture_array)
+					_material.next_pass.set_shader_parameter(shader_params, texture_array)
 
 	_shader_uses_texture_array = false
 	_is_using_indexed_splatmap = false
